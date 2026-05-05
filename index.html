@@ -216,7 +216,7 @@ const TABS = [
       {key:"industry", label:"Industry", required:true, type:"multiselect", inputId:"ms67769108", options:OPT_INDUSTRY},
       {key:"program", label:"Program", type:"multiselect", inputId:"mscef744ab", options:[], hint:"Free-text autocomplete (type to add)"},
       {key:"offering", label:"Offering", type:"multiselect", inputId:"msc7c453d4", options:OPT_OFFERING},
-      {key:"requesterId", label:"Requester ID", required:true, type:"text", name:"$PpyWorkPage$pRequester", hint:"email"},
+      {key:"requesterId", label:"Requester ID", required:true, type:"text", name:"$PpyWorkPage$pRequester", slow:true, hint:"email — autofills last with autocomplete pick"},
       {key:"typeOfSupport", label:"Type of Support", required:true, type:"select", name:"$PpyWorkPage$pTypeOfVideo", options:OPT_VIDEO_SUPPORT},
       {key:"requestType", label:"Request Type", required:true, type:"select", name:"$PpyWorkPage$pIsinternalorexternal", options:OPT_INTEXT},
       {key:"videoType", label:"Video Type", type:"select", name:"$PpyWorkPage$pVideoType", options:OPT_VIDEO_TYPE},
@@ -237,7 +237,7 @@ const TABS = [
       {key:"pillar", label:"Pillar", type:"select", name:"$PpyWorkPage$pPillar", options:OPT_PILLAR},
       {key:"topics", label:"Topics", required:true, type:"multiselect", inputId:"msbd770382", options:OPT_TOPICS},
       {key:"offering", label:"Offering", type:"multiselect", inputId:"mscef744ab", options:OPT_OFFERING},
-      {key:"requesterId", label:"Requester ID", required:true, type:"text", name:"$PpyWorkPage$pRequester", hint:"email"},
+      {key:"requesterId", label:"Requester ID", required:true, type:"text", name:"$PpyWorkPage$pRequester", slow:true, hint:"email — autofills last with autocomplete pick"},
       {key:"sendDate", label:"Target Send Date/Time", required:true, type:"date", name:"$PpyWorkPage$pDueDate"},
       {key:"touchNumber", label:"Touch Number", required:true, type:"number", name:"$PpyWorkPage$pEmailTouch"},
       {key:"contentType", label:"Content Type", required:true, type:"select", name:"$PpyWorkPage$pContentType", options:OPT_CONTENT_TYPE},
@@ -274,7 +274,7 @@ const TABS = [
       {key:"regions", label:"Regions", required:true, type:"multiselect", inputId:"msfef892b2", options:OPT_REGIONS},
       {key:"industry", label:"Industry", required:true, type:"multiselect", inputId:"ms67769108", options:OPT_INDUSTRY},
       {key:"offering", label:"Offering", type:"multiselect", inputId:"mscef744ab", options:OPT_OFFERING},
-      {key:"requesterId", label:"Requester ID", required:true, type:"text", name:"$PpyWorkPage$pRequester"},
+      {key:"requesterId", label:"Requester ID", required:true, type:"text", name:"$PpyWorkPage$pRequester", slow:true, hint:"email — autofills last with autocomplete pick"},
       {key:"pageExample", label:"Page Example (URL)", type:"url", name:"$PpyWorkPage$pPageExample"},
       {key:"copywritingType", label:"Copywriting Type", required:true, type:"radio", name:"$PpyWorkPage$pCopywritingType", options:OPT_COPY_TYPE},
       {key:"intExt", label:"Internal/External", required:true, type:"select", name:"$PpyWorkPage$pIsinternalorexternal", options:OPT_INTEXT},
@@ -298,7 +298,7 @@ const TABS = [
       {key:"industry", label:"Industry", required:true, type:"multiselect", inputId:"ms67769108", options:OPT_INDUSTRY},
       {key:"program", label:"Program", type:"multiselect", inputId:"mscef744ab", options:[], hint:"Free-text autocomplete (type to add)"},
       {key:"offering", label:"Offering", type:"multiselect", inputId:"msc7c453d4", options:OPT_OFFERING},
-      {key:"requesterId", label:"Requester ID", required:true, type:"text", name:"$PpyWorkPage$pRequester"},
+      {key:"requesterId", label:"Requester ID", required:true, type:"text", name:"$PpyWorkPage$pRequester", slow:true, hint:"email — autofills last with autocomplete pick"},
       {key:"creativeType", label:"Creative Type", required:true, type:"select", name:"$PpyWorkPage$pType", options:OPT_CREATIVE_TYPE},
       {key:"requestType", label:"Request Type", required:true, type:"select", name:"$PpyWorkPage$pIsinternalorexternal", options:OPT_INTEXT},
       {key:"clientLogos", label:"Will this asset feature client logos?", required:true, type:"select", name:"$PpyWorkPage$pWillThisAssetFeatureClientLogos", options:OPT_YESNO},
@@ -711,14 +711,15 @@ function updateValidation(tab) {
 
 /* ---------- Bookmarklet generation ---------- */
 function buildPayload(tab, ticketIndex) {
-  // Compact payload: t=texts (input+textarea), s=selects, r=radios, c=checkbox names, m=multiselects
-  const p = { t:[], s:[], r:[], c:[], m:[] };
+  // Compact payload: t=texts, s=selects, r=radios, c=checkbox names, m=multiselects, a=slow autocomplete fills
+  const p = { t:[], s:[], r:[], c:[], m:[], a:[] };
   for (const f of tab.fields) {
     const v = effectiveValue(tab, ticketIndex, f.key);
     if (f.type === "select") { if (v) p.s.push([f.name, v]); }
     else if (f.type === "radio") { if (v) p.r.push([f.name, v]); }
     else if (f.type === "checkbox") { if (v) p.c.push(f.name); }
     else if (f.type === "multiselect") { if (Array.isArray(v) && v.length) p.m.push([f.inputId, v]); }
+    else if (f.slow) { if (v !== "" && v != null) p.a.push([f.name, String(v)]); }
     else { if (v !== "" && v != null) p.t.push([f.name, String(v)]); }
   }
   return p;
@@ -726,7 +727,7 @@ function buildPayload(tab, ticketIndex) {
 
 /* Minified runtime. D = {t,s,r,c,m}. Single-line for compact javascript: URL. */
 function pegaFillerSource() {
-  return `(function(D){var d=document,F=d.getElementsByTagName('iframe'),i;for(i=0;i<F.length;i++){try{var x=F[i].contentDocument;if(x&&x.querySelector('[name*=pyWorkPage]')){d=x;break}}catch(e){}}if(!d.querySelector('[name*=pyWorkPage]')){alert('Pega form not found');return}function f(e,t){e.dispatchEvent(new Event(t,{bubbles:1}))}D.t.forEach(function(a){var e=d.querySelector('[name="'+a[0]+'"]');if(e){e.value=a[1];f(e,'input');f(e,'change');f(e,'blur')}});D.s.forEach(function(a){var e=d.querySelector('select[name="'+a[0]+'"]');if(!e)return;for(var i=0;i<e.options.length;i++)if(e.options[i].value==a[1]||e.options[i].text==a[1]){e.selectedIndex=i;break}f(e,'change')});D.r.forEach(function(a){var e=d.querySelector('input[type=radio][name="'+a[0]+'"][value="'+a[1]+'"]');if(e){e.checked=1;f(e,'click');f(e,'change')}});D.c.forEach(function(n){var e=d.querySelector('input[type=checkbox][name="'+n+'"]');if(e&&!e.checked){e.checked=1;f(e,'click');f(e,'change')}});function pk(I,v,cb){I.focus();I.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',keyCode:40,bubbles:1}));setTimeout(function(){var o=d.querySelectorAll('[role=option]'),m,i;for(i=0;i<o.length;i++)if(o[i].textContent.trim()===v){m=o[i];break}if(m)m.click();setTimeout(cb,200)},200)}var q=[];D.m.forEach(function(a){var I=d.getElementById(a[0]);if(!I)return;var c=I.closest('[class*=multiselect]')||I.parentElement.parentElement;c.querySelectorAll('[class*=capsule] button').forEach(function(b){try{b.click()}catch(e){}});a[1].forEach(function(v){q.push([I,v])})});(function r(i){if(i>=q.length)return;pk(q[i][0],q[i][1],function(){r(i+1)})})(0)})(__P__)`;
+  return `(function(D){var d=document,F=d.getElementsByTagName('iframe'),i;for(i=0;i<F.length;i++){try{var x=F[i].contentDocument;if(x&&x.querySelector('[name*=pyWorkPage]')){d=x;break}}catch(e){}}if(!d.querySelector('[name*=pyWorkPage]')){alert('Pega form not found');return}function f(e,t){e.dispatchEvent(new Event(t,{bubbles:1}))}D.t.forEach(function(a){var e=d.querySelector('[name="'+a[0]+'"]');if(e){e.value=a[1];f(e,'input');f(e,'change');f(e,'blur')}});D.s.forEach(function(a){var e=d.querySelector('select[name="'+a[0]+'"]');if(!e)return;for(var i=0;i<e.options.length;i++)if(e.options[i].value==a[1]||e.options[i].text==a[1]){e.selectedIndex=i;break}f(e,'change')});D.r.forEach(function(a){var e=d.querySelector('input[type=radio][name="'+a[0]+'"][value="'+a[1]+'"]');if(e){e.checked=1;f(e,'click');f(e,'change')}});D.c.forEach(function(n){var e=d.querySelector('input[type=checkbox][name="'+n+'"]');if(e&&!e.checked){e.checked=1;f(e,'click');f(e,'change')}});function pk(I,v,cb){I.focus();I.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',keyCode:40,bubbles:1}));setTimeout(function(){var o=d.querySelectorAll('[role=option]'),m,i;for(i=0;i<o.length;i++)if(o[i].textContent.trim()===v){m=o[i];break}if(m)m.click();setTimeout(cb,200)},200)}function ac(a,cb){var e=d.querySelector('[name="'+a[0]+'"]');if(!e){cb();return}e.focus();e.value='';f(e,'input');var n=0;function tp(){if(n<a[1].length){e.value=a[1].slice(0,++n);f(e,'input');f(e,'keyup');setTimeout(tp,80)}else{setTimeout(function(){var o=d.querySelectorAll('[role=option]'),m,i;for(i=0;i<o.length;i++)if(o[i].textContent.trim().toLowerCase().indexOf(a[1].toLowerCase())>-1){m=o[i];break}if(!m&&o.length)m=o[0];if(m)m.click();else{f(e,'change');f(e,'blur')}cb()},900)}}tp()}var q=[];D.m.forEach(function(a){var I=d.getElementById(a[0]);if(!I)return;var c=I.closest('[class*=multiselect]')||I.parentElement.parentElement;c.querySelectorAll('[class*=capsule] button').forEach(function(b){try{b.click()}catch(e){}});a[1].forEach(function(v){q.push([I,v])})});function runA(i){if(i>=(D.a||[]).length)return;ac(D.a[i],function(){runA(i+1)})}(function r(i){if(i>=q.length){setTimeout(function(){runA(0)},400);return}pk(q[i][0],q[i][1],function(){r(i+1)})})(0)})(__P__)`;
 }
 
 function buildBookmarkletUrl(payload) {
