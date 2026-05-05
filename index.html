@@ -720,6 +720,13 @@ function buildPayload(tab, ticketIndex) {
     else if (f.type === "checkbox") { if (v) p.c.push(f.name); }
     else if (f.type === "multiselect") { if (Array.isArray(v) && v.length) p.m.push([f.inputId, v]); }
     else if (f.slow) { if (v !== "" && v != null) p.a.push([f.name, String(v)]); }
+    else if (f.type === "date") {
+      if (v) {
+        const parts = String(v).split("-"); // YYYY-MM-DD from native date input
+        const formatted = parts.length === 3 ? parts[1]+"/"+parts[2]+"/"+parts[0] : String(v);
+        p.t.push([f.name, formatted]);
+      }
+    }
     else { if (v !== "" && v != null) p.t.push([f.name, String(v)]); }
   }
   return p;
