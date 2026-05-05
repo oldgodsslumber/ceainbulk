@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pega Bulk Ticket Creator</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root {
+    --bg:#f6f7f9; --panel:#fff; --border:#d8dde4; --muted:#6b7280;
+    --accent:#1e6feb; --accent-dark:#1957bf; --linked:#f0f2f5;
+    --linked-text:#5b6573; --required:#e1364c; --ok:#2f8f4a;
+    --warn:#b97a00;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:var(--bg); color:#111;
+    font:13px/1.4 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+  header.app {
+    background:#0e2236; color:#fff; padding:10px 16px;
+    display:flex; align-items:center; gap:14px;
+  }
+  header.app h1 { font-size:15px; margin:0; font-weight:600; }
+  header.app .banner {
+    font-size:12px; color:#a8b6c8; margin-left:auto;
+  }
+  .tabs {
+    display:flex; background:#1b3957; padding:0 8px; gap:2px;
+  }
+  .tab {
+    padding:10px 16px; cursor:pointer; color:#cfd8e3;
+    background:transparent; border:none; font:inherit;
+    border-radius:6px 6px 0 0;
+  }
+  .tab:hover { background:#23476b; color:#fff; }
+  .tab.active { background:var(--bg); color:#0e2236; font-weight:600; }
+  .pane { padding:12px 16px; }
+  .controls {
+    display:flex; align-items:center; gap:8px; margin-bottom:10px;
+    flex-wrap:wrap;
+  }
+  .btn {
+    background:var(--accent); color:#fff; border:none; padding:7px 12px;
+    border-radius:5px; cursor:pointer; font:inherit; font-weight:500;
+  }
+  .btn:hover { background:var(--accent-dark); }
+  .btn.ghost { background:#fff; color:#111; border:1px solid var(--border); }
+  .btn.ghost:hover { background:#f0f0f0; }
+  .btn.danger { background:#fff; color:var(--required); border:1px solid var(--required); }
+  .count { color:var(--muted); margin-left:6px; }
+  .toast {
+    position:fixed; bottom:18px; right:18px;
+    background:#222; color:#fff; padding:8px 12px; border-radius:5px;
+    opacity:0; transition:opacity .2s; pointer-events:none; z-index:1000;
+    font-size:12px;
+  }
+  .toast.show { opacity:1; }
+  .grid-wrap {
+    border:1px solid var(--border); background:var(--panel);
+    border-radius:6px; overflow:auto; max-width:100%;
+    max-height:calc(100vh - 260px);
+  }
+  table.grid {
+    border-collapse:separate; border-spacing:0;
+    font-size:12.5px;
+  }
+  table.grid th, table.grid td {
+    border-right:1px solid var(--border);
+    border-bottom:1px solid var(--border);
+    padding:0; vertical-align:top;
+    background:#fff;
+  }
+  table.grid thead th {
+    position:sticky; top:0; background:#eef1f5; z-index:3;
+    padding:6px 8px; text-align:left; font-weight:600;
+    min-width:200px;
+  }
+  table.grid thead th.label-head {
+    left:0; z-index:5; min-width:220px;
+  }
+  table.grid thead th.col-head {
+    display:flex; justify-content:space-between; align-items:center;
+    gap:6px;
+  }
+  th.col-head .col-actions { display:flex; gap:4px; }
+  th.col-head button {
+    background:transparent; border:none; cursor:pointer;
+    padding:2px 4px; font-size:13px; color:var(--muted);
+    border-radius:3px;
+  }
+  th.col-head button:hover { background:#dde2ea; color:#111; }
+  table.grid td.label-cell {
+    position:sticky; left:0; background:#fafbfc; z-index:2;
+    padding:6px 10px; font-weight:500; min-width:220px;
+    border-right:2px solid var(--border);
+  }
+  table.grid td.label-cell .req { color:var(--required); margin-left:3px; }
+  table.grid td.label-cell .hint { color:var(--muted); font-size:11px; font-weight:400; display:block; }
+  table.grid td.cell {
+    min-width:200px; max-width:340px; height:36px;
+    position:relative;
+  }
+  table.grid td.cell.master { background:#fff; }
+  table.grid td.cell.linked {
+    background:var(--linked); color:var(--linked-text); font-style:italic;
+  }
+  table.grid td.cell.overridden { background:#fff; }
+  table.grid td.cell.invalid { box-shadow: inset 4px 0 0 var(--required); }
+  .cell-display {
+    padding:8px 10px; min-height:36px; cursor:text;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .cell-display.placeholder { color:#9aa3af; }
+  .reset-btn {
+    position:absolute; top:2px; right:2px; background:transparent;
+    border:none; cursor:pointer; font-size:11px; color:var(--muted);
+    padding:2px 4px; border-radius:3px; line-height:1;
+  }
+  .reset-btn:hover { background:#e7eaef; color:#111; }
+  .editor input, .editor textarea, .editor select {
+    width:100%; border:1px solid var(--accent); border-radius:0;
+    padding:6px 8px; font:inherit; outline:none; background:#fff;
+    color:#111; font-style:normal;
+  }
+  .editor textarea { min-height:60px; resize:vertical; }
+  .ms-popup {
+    position:absolute; z-index:50; top:100%; left:0;
+    background:#fff; border:1px solid var(--accent);
+    box-shadow:0 4px 16px rgba(0,0,0,.18);
+    max-height:260px; overflow:auto; min-width:240px;
+    padding:4px 0;
+  }
+  .ms-popup label {
+    display:block; padding:5px 10px; cursor:pointer;
+    font-style:normal; color:#111;
+  }
+  .ms-popup label:hover { background:#eef3fb; }
+  .ms-popup input { margin-right:6px; }
+  .chips { display:flex; flex-wrap:wrap; gap:3px; padding:5px 6px; }
+  .chip {
+    background:#dde6f4; color:#1e3a66; padding:2px 6px;
+    border-radius:9px; font-size:11px; font-style:normal;
+  }
+  .validation-msg {
+    margin:8px 0; padding:8px 10px; border-radius:5px;
+    background:#fff5e6; color:#7a4f00; border:1px solid #f0d9a8;
+    font-size:12px;
+  }
+  .validation-msg.ok { background:#eaf6ec; color:#225d33; border-color:#bcdcc1; }
+  .bookmarklet-section {
+    margin-top:14px; padding:12px; background:var(--panel);
+    border:1px solid var(--border); border-radius:6px;
+  }
+  .bookmarklet-section h2 { font-size:14px; margin:0 0 8px; }
+  .bookmarklet-section ol { margin:8px 0 0; padding-left:22px; }
+  .bookmarklet-section li { margin:6px 0; }
+  .bookmarklet-link {
+    display:inline-block; padding:5px 10px; background:#fffbea;
+    border:1px dashed #c8a849; color:#5a4200; border-radius:4px;
+    text-decoration:none; cursor:grab; font-weight:500;
+  }
+  .size-tag { color:var(--muted); font-size:11px; margin-left:8px; }
+  .size-tag.warn { color:var(--warn); font-weight:600; }
+  .instr { color:var(--muted); font-size:12px; margin-bottom:6px; }
+</style>
+</head>
+<body>
+
+<header class="app">
+  <h1>Pega Bulk Ticket Creator</h1>
+  <span class="banner">Generates bookmarklets for corporateexpress.pegacloud.io Enter Request forms.</span>
+</header>
+
+<nav class="tabs" id="tabs"></nav>
+<main id="panes"></main>
+
+<div class="toast" id="toast">Saved</div>
+
+<script>
+"use strict";
+
+/* ---------- Shared option lists ---------- */
+const OPT_FUNCTION = ["Brand","Client Experience","Client Innovation","Content Marketing","Corporate Comms","Digital","Events","Global Customer Support","HR","Industry Markets","Other","Partner Delivery Excellence","Partner Marketing","Partner Management","Partner New Channels & Ventures","Partner Sales","Partner Sales Effectiveness","Partner Transformation & Programs","Pega Community","Product Marketing","Regional Marketing","Sales"];
+const OPT_PILLAR = ["ABM","Brand and awareness","Buyer Enablement","Community developer","Ecosystems","Growth programs","Non-program","PegaWorld"];
+const OPT_TOPICS = ["Not Applicable","Agentic AI","Autonomous Enterprise","Compliance","Customer Engagement","Customer Onboarding","Digital Transformation","Enterprise Agility and Modernization","Legacy Modernization","Marketing","Operational Excellence","PegaWorld","Personalized Customer Experiences","Platform-as-a-Service","Predictive AI and Decisioning","Robotic Process Automation","Sales Automation","Scalability","UX and Design","Workflow Automation"];
+const OPT_REGIONS = ["Worldwide","Asia Pacific","EMEA","Latin America","North America","Other"];
+const OPT_INDUSTRY = ["Not Applicable","Communications and Media","Consumer Services","Financial Services","Government","Healthcare and Life Sciences","Insurance","Manufacturing","Other Industry"];
+const OPT_OFFERING = ["CLM/KYC","Collections","Credit Risk Decisioning","Cross-Offering","Customer Engagement","Customer Service","Customer Service Add-ons","Focused Offering","Heritage Modernization","Legacy Transformation","Pega as-a-Service (Cloud)","Platform Add-ons","Sales Automation","Smart Disputes","Smart Investigate","Workflow Automation","Not Applicable"];
+const OPT_INTEXT = ["External","Internal"];
+const OPT_YESNO = ["Yes","No"];
+const OPT_VIDEO_SUPPORT = ["Create a Video","Creative Consultation","File Request","Quick Fix"];
+const OPT_VIDEO_TYPE = ["Overviews","Value Prop","Explainers","ABM Explainer","Re-Skin","Headliners","Exceptions","Shows","Fireside Chats","Booth Broadcasts","Long-Form Snapshot","Client Headliner","Client Focus","Client Snapshot","Client Round-Up","Expert Advice","Executive Video","Event Promo","Event Opener","Virtual Keynotes","Fireside Feature","Event Session","Event Recap","Presentation – Studio","Conversation – Studio","Personal – Studio"];
+const OPT_CREATIVE_CONCEPT = ["Be Loved","Blankware","Build for Change","Do Done","Generic","Get Me Got Me","It Can Happen","Max Out","Members First","Other"];
+const OPT_CONTENT_TYPE = ["Analyst Report","Announcement","Article","Blog","Case Study","Customer Support Message","Demo","eBook","Event (Pega Led)","Infographic","Media Coverage","Newsletter","PegaWorld","Tradeshow","Training","Trial","Video","Webinar","Webinar On-Demand","Website","Whitepaper"];
+const OPT_LANGUAGE = ["Dutch","English (UK)","English (US)","French (France)","German (Germany)","Italian","Japanese","Other","Portuguese (Brazil)","Portuguese (Portugal)","Russian","Spanish (Latam)","Spanish (Spain)","Swedish"];
+const OPT_EMAIL_TYPE = ["Promotional","Transactional"];
+const OPT_AUDIENCE = ["DontNeedList","WillProvideCriteria","WillAttachList"];
+const OPT_COPY_TYPE_EMAIL = ["Copywriting","Copyediting","I'm not sure","No copy support needed"];
+const OPT_COPY_TYPE = ["Copywriting","Copyediting","Proofing","I'm not sure"];
+const OPT_IMAGES = ["No image needed","I will attach an image","Request new image","Link to image from DAM"];
+const OPT_SCOPE = ["1","2","3","4"];
+const OPT_SCOPE_DESIGN = ["1 (SLA: 20 days–10 weeks)","2 (SLA: 12-19 days)","3 (SLA: 5-11 days)","4 (SLA: 2-6 days)"];
+const OPT_CREATIVE_TYPE = ["Program Branding","Creative Concepting","Paid Media","Social Media Assets","Whitepaper","Datasheet","Case Study","Ebook","Business Brief","Report","Direct Mail","Postcard","Booth/Event Graphics","Environmental Graphic","Presentation Support","Infographic","Blog Image","Template","Brainstorm","Web Design","Retire Client Logo","Other"];
+
+/* ---------- Tab / field schemas ---------- */
+/* field: { key, label, required, type, name?, inputId?, options?, max?, hint? } */
+const TABS = [
+  {
+    id: "video",
+    title: "Create a Video",
+    pegaClass: "PegaXF-PXMktCmpgn-Work-Video",
+    fields: [
+      {key:"titleOfRequest", label:"Title of Request", required:true, type:"text", name:"$PpyWorkPage$pTitleOfRequest", max:60, hint:"60 char max"},
+      {key:"function", label:"Your Function", required:true, type:"select", name:"$PpyWorkPage$pRequestersFunctionTeam", options:OPT_FUNCTION},
+      {key:"pillar", label:"Pillar", type:"select", name:"$PpyWorkPage$pPillar", options:OPT_PILLAR},
+      {key:"topics", label:"Topics", required:true, type:"multiselect", inputId:"msbd770382", options:OPT_TOPICS},
+      {key:"regions", label:"Regions", required:true, type:"multiselect", inputId:"msfef892b2", options:OPT_REGIONS},
+      {key:"industry", label:"Industry", required:true, type:"multiselect", inputId:"ms67769108", options:OPT_INDUSTRY},
+      {key:"program", label:"Program", type:"multiselect", inputId:"mscef744ab", options:[], hint:"Free-text autocomplete (type to add)"},
+      {key:"offering", label:"Offering", type:"multiselect", inputId:"msc7c453d4", options:OPT_OFFERING},
+      {key:"requesterId", label:"Requester ID", required:true, type:"text", name:"$PpyWorkPage$pRequester", hint:"email"},
+      {key:"typeOfSupport", label:"Type of Support", required:true, type:"select", name:"$PpyWorkPage$pTypeOfVideo", options:OPT_VIDEO_SUPPORT},
+      {key:"requestType", label:"Request Type", required:true, type:"select", name:"$PpyWorkPage$pIsinternalorexternal", options:OPT_INTEXT},
+      {key:"videoType", label:"Video Type", type:"select", name:"$PpyWorkPage$pVideoType", options:OPT_VIDEO_TYPE},
+      {key:"creativeConcept", label:"Creative Concept", type:"select", name:"$PpyWorkPage$pGenericCreativeConcept", options:OPT_CREATIVE_CONCEPT},
+      {key:"clientLogos", label:"Will this asset feature client logos?", required:true, type:"select", name:"$PpyWorkPage$pWillThisAssetFeatureClientLogos", options:OPT_YESNO},
+      {key:"synopsis", label:"Synopsis", type:"textarea", name:"$PpyWorkPage$pEventDescription"},
+      {key:"requestedFinalDelivery", label:"Requested Final Delivery", type:"date", name:"$PpyWorkPage$pDueDate"},
+      {key:"deliveryContext", label:"Delivery date context & activation plan", type:"textarea", name:"$PpyWorkPage$pAdditionalFactors", hint:"Context around requested delivery date and the activation plan for this video"},
+    ],
+  },
+  {
+    id: "email",
+    title: "Request an Email",
+    pegaClass: "PegaXF-PXMktCmpgn-Work-EmailRequest",
+    fields: [
+      {key:"titleOfRequest", label:"Title of Request", required:true, type:"text", name:"$PpyWorkPage$pTitleOfRequest", max:60, hint:"60 char max"},
+      {key:"function", label:"Your Function", required:true, type:"select", name:"$PpyWorkPage$pRequestersFunctionTeam", options:OPT_FUNCTION},
+      {key:"pillar", label:"Pillar", type:"select", name:"$PpyWorkPage$pPillar", options:OPT_PILLAR},
+      {key:"topics", label:"Topics", required:true, type:"multiselect", inputId:"msbd770382", options:OPT_TOPICS},
+      {key:"offering", label:"Offering", type:"multiselect", inputId:"mscef744ab", options:OPT_OFFERING},
+      {key:"requesterId", label:"Requester ID", required:true, type:"text", name:"$PpyWorkPage$pRequester", hint:"email"},
+      {key:"sendDate", label:"Target Send Date/Time", required:true, type:"date", name:"$PpyWorkPage$pDueDate"},
+      {key:"touchNumber", label:"Touch Number", required:true, type:"number", name:"$PpyWorkPage$pEmailTouch"},
+      {key:"contentType", label:"Content Type", required:true, type:"select", name:"$PpyWorkPage$pContentType", options:OPT_CONTENT_TYPE},
+      {key:"targetLanguage", label:"Target Language", required:true, type:"select", name:"$PpyWorkPage$pTargetLanguage", options:OPT_LANGUAGE},
+      {key:"otherLanguage", label:"Other Language", type:"text", name:"$PpyWorkPage$pOtherLanguage"},
+      {key:"emailType", label:"Email Type", type:"radio", name:"$PpyWorkPage$pEmailType", options:OPT_EMAIL_TYPE},
+      {key:"audience", label:"Audience", type:"radio", name:"$PpyWorkPage$pAudienceEmailOptions", options:OPT_AUDIENCE},
+      {key:"suppressReg", label:"Suppress Existing Registrant", type:"checkbox", name:"$PpyWorkPage$pSupressExistingRegistrant"},
+      {key:"includeReg", label:"Include Existing Registrants", type:"checkbox", name:"$PpyWorkPage$pIncludeExistingRegistrants"},
+      {key:"partnersOnly", label:"Partners Only", type:"checkbox", name:"$PpyWorkPage$pPartnersOnly"},
+      {key:"partnersAndNon", label:"Partners and Non-Partners", type:"checkbox", name:"$PpyWorkPage$pPartnersAndNonPartners"},
+      {key:"noPartners", label:"Do Not Include Partners", type:"checkbox", name:"$PpyWorkPage$pDoNotIncludePartners"},
+      {key:"communityOnly", label:"Community Members Only", type:"checkbox", name:"$PpyWorkPage$pCommunityMembersOnly"},
+      {key:"communityNon", label:"Community + Non-Community", type:"checkbox", name:"$PpyWorkPage$pCommunityMmbrsNonCommunityMmbrs"},
+      {key:"copywritingType", label:"Copywriting Type", type:"radio", name:"$PpyWorkPage$pCopywritingType", options:OPT_COPY_TYPE_EMAIL},
+      {key:"images", label:"Images", type:"radio", name:"$PpyWorkPage$pImages", options:OPT_IMAGES},
+      {key:"creativeDue", label:"Creative Due", type:"date", name:"$PpyWorkPage$pCreativeDue"},
+      {key:"resolution", label:"Resolution (dpi)", type:"text", name:"$PpyWorkPage$pResolutiondpi"},
+      {key:"fileType", label:"File Type", type:"text", name:"$PpyWorkPage$pFileType"},
+      {key:"dimensions", label:"Dimensions", type:"text", name:"$PpyWorkPage$pDimensions"},
+      {key:"quantity", label:"Quantity", type:"number", name:"$PpyWorkPage$pQuantity"},
+      {key:"notes", label:"Notes", type:"textarea", name:"$PpyWorkPage$pNotes"},
+    ],
+  },
+  {
+    id: "copy",
+    title: "Request Copywriting/Editing",
+    pegaClass: "PegaXF-PXMktCmpgn-Work-Copywriting",
+    fields: [
+      {key:"titleOfRequest", label:"Title of Request", required:true, type:"text", name:"$PpyWorkPage$pTitleOfRequest", max:60, hint:"60 char max"},
+      {key:"function", label:"Your Function", required:true, type:"select", name:"$PpyWorkPage$pRequestersFunctionTeam", options:OPT_FUNCTION},
+      {key:"pillar", label:"Pillar", type:"select", name:"$PpyWorkPage$pPillar", options:OPT_PILLAR},
+      {key:"topics", label:"Topics", required:true, type:"multiselect", inputId:"msbd770382", options:OPT_TOPICS},
+      {key:"regions", label:"Regions", required:true, type:"multiselect", inputId:"msfef892b2", options:OPT_REGIONS},
+      {key:"industry", label:"Industry", required:true, type:"multiselect", inputId:"ms67769108", options:OPT_INDUSTRY},
+      {key:"offering", label:"Offering", type:"multiselect", inputId:"mscef744ab", options:OPT_OFFERING},
+      {key:"requesterId", label:"Requester ID", required:true, type:"text", name:"$PpyWorkPage$pRequester"},
+      {key:"pageExample", label:"Page Example (URL)", type:"url", name:"$PpyWorkPage$pPageExample"},
+      {key:"copywritingType", label:"Copywriting Type", required:true, type:"radio", name:"$PpyWorkPage$pCopywritingType", options:OPT_COPY_TYPE},
+      {key:"intExt", label:"Internal/External", required:true, type:"select", name:"$PpyWorkPage$pIsinternalorexternal", options:OPT_INTEXT},
+      {key:"dueDate", label:"Due Date", required:true, type:"date", name:"$PpyWorkPage$pDueDate"},
+      {key:"scopeLevel", label:"Scope Level", required:true, type:"radio", name:"$PpyWorkPage$pScopeLevel", options:OPT_SCOPE},
+      {key:"reasonDueDate", label:"Reason for Due Date", required:true, type:"textarea", name:"$PpyWorkPage$pReasonForDueDate"},
+      {key:"overview", label:"Overview", type:"textarea", name:"$PpyWorkPage$pOverview"},
+      {key:"notes", label:"Notes", type:"textarea", name:"$PpyWorkPage$pNotes"},
+    ],
+  },
+  {
+    id: "design",
+    title: "Request Design Support",
+    pegaClass: "PegaXF-PXMktCmpgn-Work-CreativeRequest",
+    fields: [
+      {key:"titleOfRequest", label:"Title of Request", required:true, type:"text", name:"$PpyWorkPage$pTitleOfRequest", max:60, hint:"60 char max"},
+      {key:"function", label:"Your Function", required:true, type:"select", name:"$PpyWorkPage$pRequestersFunctionTeam", options:OPT_FUNCTION},
+      {key:"pillar", label:"Pillar", type:"select", name:"$PpyWorkPage$pPillar", options:OPT_PILLAR},
+      {key:"topics", label:"Topics", required:true, type:"multiselect", inputId:"msbd770382", options:OPT_TOPICS},
+      {key:"regions", label:"Regions", required:true, type:"multiselect", inputId:"msfef892b2", options:OPT_REGIONS},
+      {key:"industry", label:"Industry", required:true, type:"multiselect", inputId:"ms67769108", options:OPT_INDUSTRY},
+      {key:"program", label:"Program", type:"multiselect", inputId:"mscef744ab", options:[], hint:"Free-text autocomplete (type to add)"},
+      {key:"offering", label:"Offering", type:"multiselect", inputId:"msc7c453d4", options:OPT_OFFERING},
+      {key:"requesterId", label:"Requester ID", required:true, type:"text", name:"$PpyWorkPage$pRequester"},
+      {key:"creativeType", label:"Creative Type", required:true, type:"select", name:"$PpyWorkPage$pType", options:OPT_CREATIVE_TYPE},
+      {key:"requestType", label:"Request Type", required:true, type:"select", name:"$PpyWorkPage$pIsinternalorexternal", options:OPT_INTEXT},
+      {key:"clientLogos", label:"Will this asset feature client logos?", required:true, type:"select", name:"$PpyWorkPage$pWillThisAssetFeatureClientLogos", options:OPT_YESNO},
+      {key:"assetDate", label:"Asset Needed Date", required:true, type:"date", name:"$PpyWorkPage$pDueDate"},
+      {key:"scopeLevel", label:"Scope Level", required:true, type:"radio", name:"$PpyWorkPage$pScopeLevel", options:OPT_SCOPE_DESIGN},
+      {key:"reasonDueDate", label:"Reason for Due Date", required:true, type:"textarea", name:"$PpyWorkPage$pReasonForDueDate"},
+      {key:"platformUsed", label:"Platform Used", type:"text", name:"$PpyWorkPage$pPlatformUsed"},
+      {key:"copywritingType", label:"Copywriting Type", type:"radio", name:"$PpyWorkPage$pCopywritingType", options:OPT_COPY_TYPE},
+      {key:"fileType", label:"File Type", type:"text", name:"$PpyWorkPage$pFileType"},
+      {key:"resolution", label:"Resolution (dpi)", type:"text", name:"$PpyWorkPage$pResolutiondpi"},
+      {key:"slides", label:"Number of Slides", type:"number", name:"$PpyWorkPage$pNumberOfSlides"},
+      {key:"notes", label:"Notes", type:"textarea", name:"$PpyWorkPage$pNotes"},
+    ],
+  },
+];
+
+/* ---------- State ---------- */
+/* state[tabId] = { tickets: [ { fieldKey: { value, isLinked } } ] } */
+const state = {};
+let activeTab = TABS[0].id;
+
+function defaultValue(field) {
+  if (field.type === "checkbox") return false;
+  if (field.type === "multiselect") return [];
+  return "";
+}
+
+function blankTicket(tab) {
+  const t = {};
+  for (const f of tab.fields) t[f.key] = { value: defaultValue(f), isLinked: false };
+  return t;
+}
+
+function newLinkedTicket(tab) {
+  const t = {};
+  for (const f of tab.fields) t[f.key] = { value: defaultValue(f), isLinked: true };
+  return t;
+}
+
+function loadState() {
+  for (const tab of TABS) {
+    const key = "pegaBulkCreator_" + tab.id + "_v1";
+    let parsed = null;
+    try { const raw = localStorage.getItem(key); if (raw) parsed = JSON.parse(raw); } catch(e) {}
+    if (parsed && Array.isArray(parsed.tickets) && parsed.tickets.length) {
+      // Migrate: ensure all field keys exist
+      for (const tk of parsed.tickets) {
+        for (const f of tab.fields) {
+          if (!tk[f.key]) tk[f.key] = { value: defaultValue(f), isLinked: false };
+        }
+      }
+      state[tab.id] = parsed;
+    } else {
+      state[tab.id] = { tickets: [ blankTicket(tab) ] };
+      state[tab.id].tickets[0] = blankTicket(tab); // master
+    }
+  }
+}
+
+function saveState(tabId) {
+  try {
+    localStorage.setItem("pegaBulkCreator_" + tabId + "_v1", JSON.stringify(state[tabId]));
+    showToast("Saved");
+  } catch(e) { showToast("Save failed"); }
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 1200);
+}
+
+function effectiveValue(tab, ticketIndex, fieldKey) {
+  const cell = state[tab.id].tickets[ticketIndex][fieldKey];
+  if (ticketIndex === 0 || !cell.isLinked) return cell.value;
+  return state[tab.id].tickets[0][fieldKey].value;
+}
+
+/* ---------- Rendering ---------- */
+function renderTabs() {
+  const nav = document.getElementById("tabs");
+  nav.innerHTML = "";
+  for (const tab of TABS) {
+    const b = document.createElement("button");
+    b.className = "tab" + (tab.id === activeTab ? " active" : "");
+    b.textContent = tab.title;
+    b.onclick = () => { activeTab = tab.id; renderTabs(); renderPane(); };
+    nav.appendChild(b);
+  }
+}
+
+function renderPane() {
+  const root = document.getElementById("panes");
+  root.innerHTML = "";
+  const tab = TABS.find(t => t.id === activeTab);
+  const pane = document.createElement("div");
+  pane.className = "pane";
+
+  // controls
+  const controls = document.createElement("div");
+  controls.className = "controls";
+  const addBtn = document.createElement("button");
+  addBtn.className = "btn"; addBtn.textContent = "+ Add Ticket";
+  addBtn.onclick = () => {
+    state[tab.id].tickets.push(newLinkedTicket(tab));
+    saveState(tab.id); renderPane();
+  };
+  const genBtn = document.createElement("button");
+  genBtn.className = "btn ghost"; genBtn.textContent = "Generate Bookmarklets";
+  genBtn.onclick = () => { renderBookmarklets(tab); };
+  const dupBtn = document.createElement("button");
+  dupBtn.className = "btn ghost"; dupBtn.textContent = "Reset All";
+  dupBtn.onclick = () => {
+    if (!confirm("Clear all tickets in this tab?")) return;
+    state[tab.id] = { tickets: [ blankTicket(tab) ] };
+    saveState(tab.id); renderPane();
+  };
+  const count = document.createElement("span");
+  count.className = "count";
+  count.textContent = state[tab.id].tickets.length + " ticket" +
+    (state[tab.id].tickets.length === 1 ? "" : "s");
+  controls.append(addBtn, genBtn, dupBtn, count);
+  pane.appendChild(controls);
+
+  // grid
+  const wrap = document.createElement("div"); wrap.className = "grid-wrap";
+  const table = document.createElement("table"); table.className = "grid";
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  const labelHead = document.createElement("th");
+  labelHead.className = "label-head"; labelHead.textContent = "Field";
+  headRow.appendChild(labelHead);
+
+  const tickets = state[tab.id].tickets;
+  for (let c = 0; c < tickets.length; c++) {
+    const th = document.createElement("th");
+    const inner = document.createElement("div");
+    inner.className = "col-head";
+    const lbl = document.createElement("span");
+    const titleVal = effectiveValue(tab, c, "titleOfRequest") || ("Ticket " + (c+1));
+    lbl.textContent = (c === 0 ? "★ Master · " : "") + titleVal;
+    lbl.title = titleVal;
+    lbl.style.overflow = "hidden"; lbl.style.textOverflow = "ellipsis"; lbl.style.whiteSpace = "nowrap";
+    lbl.style.maxWidth = "180px";
+    const actions = document.createElement("div"); actions.className = "col-actions";
+    if (c > 0) {
+      const linkAll = document.createElement("button");
+      linkAll.title = "Re-link all cells in this column to master";
+      linkAll.textContent = "🔗";
+      linkAll.onclick = () => {
+        for (const f of tab.fields) tickets[c][f.key].isLinked = true;
+        saveState(tab.id); renderPane();
+      };
+      const del = document.createElement("button");
+      del.title = "Delete this ticket"; del.textContent = "🗑";
+      del.onclick = () => {
+        if (!confirm("Delete ticket " + (c+1) + "?")) return;
+        tickets.splice(c, 1);
+        saveState(tab.id); renderPane();
+      };
+      actions.append(linkAll, del);
+    } else {
+      const note = document.createElement("span");
+      note.style.fontSize = "10px"; note.style.color = "#6b7280";
+      note.textContent = "propagates";
+      actions.appendChild(note);
+    }
+    inner.append(lbl, actions);
+    th.appendChild(inner);
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const f of tab.fields) {
+    const tr = document.createElement("tr");
+    const lc = document.createElement("td"); lc.className = "label-cell";
+    lc.innerHTML = '<div>' + escapeHtml(f.label) +
+      (f.required ? '<span class="req">*</span>' : '') + '</div>' +
+      (f.hint ? '<span class="hint">' + escapeHtml(f.hint) + '</span>' : '');
+    tr.appendChild(lc);
+    for (let c = 0; c < tickets.length; c++) {
+      const td = document.createElement("td");
+      td.className = "cell";
+      const cell = tickets[c][f.key];
+      const isMaster = c === 0;
+      const linked = !isMaster && cell.isLinked;
+      td.classList.add(isMaster ? "master" : (linked ? "linked" : "overridden"));
+      const val = effectiveValue(tab, c, f.key);
+      if (f.required && isEmptyValue(val, f)) td.classList.add("invalid");
+      renderCellDisplay(td, tab, c, f, val, linked, isMaster);
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  pane.appendChild(wrap);
+
+  // validation summary
+  const valBox = document.createElement("div");
+  valBox.id = "validation-summary";
+  pane.appendChild(valBox);
+
+  // bookmarklets container
+  const bm = document.createElement("div");
+  bm.id = "bookmarklets-section";
+  pane.appendChild(bm);
+
+  root.appendChild(pane);
+  updateValidation(tab);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, ch => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[ch]));
+}
+
+function isEmptyValue(v, f) {
+  if (f.type === "checkbox") return false; // checkboxes never "missing"
+  if (f.type === "multiselect") return !Array.isArray(v) || v.length === 0;
+  return v === "" || v == null;
+}
+
+function renderCellDisplay(td, tab, ticketIndex, field, val, linked, isMaster) {
+  td.innerHTML = "";
+  if (!isMaster && !linked) {
+    const reset = document.createElement("button");
+    reset.className = "reset-btn"; reset.textContent = "↩";
+    reset.title = "Reset to master";
+    reset.onclick = (e) => {
+      e.stopPropagation();
+      const cell = state[tab.id].tickets[ticketIndex][field.key];
+      cell.isLinked = true;
+      cell.value = defaultValue(field);
+      saveState(tab.id); renderPane();
+    };
+    td.appendChild(reset);
+  }
+  const disp = document.createElement("div");
+  disp.className = "cell-display";
+  if (field.type === "checkbox") {
+    disp.textContent = val ? "✓ checked" : "—";
+  } else if (field.type === "multiselect") {
+    if (!val || val.length === 0) {
+      disp.classList.add("placeholder");
+      disp.textContent = "(none)";
+    } else {
+      disp.innerHTML = "";
+      const chips = document.createElement("div"); chips.className = "chips";
+      for (const v of val) {
+        const c = document.createElement("span"); c.className = "chip"; c.textContent = v;
+        chips.appendChild(c);
+      }
+      disp.appendChild(chips);
+    }
+  } else if (val === "" || val == null) {
+    disp.classList.add("placeholder");
+    disp.textContent = "(empty)";
+  } else {
+    disp.textContent = String(val);
+  }
+  disp.onclick = () => openEditor(td, tab, ticketIndex, field);
+  td.appendChild(disp);
+}
+
+function openEditor(td, tab, ticketIndex, field) {
+  td.innerHTML = "";
+  const wrap = document.createElement("div"); wrap.className = "editor";
+  const cur = effectiveValue(tab, ticketIndex, field.key);
+
+  function commit(newVal) {
+    const cell = state[tab.id].tickets[ticketIndex][field.key];
+    cell.value = newVal;
+    if (ticketIndex !== 0) cell.isLinked = false;
+    saveState(tab.id);
+    renderPane();
+  }
+
+  if (field.type === "select") {
+    const sel = document.createElement("select");
+    const blank = document.createElement("option"); blank.value = ""; blank.textContent = "— select —";
+    sel.appendChild(blank);
+    for (const o of field.options) {
+      const op = document.createElement("option"); op.value = o; op.textContent = o;
+      if (o === cur) op.selected = true;
+      sel.appendChild(op);
+    }
+    sel.onchange = () => commit(sel.value);
+    sel.onblur = () => commit(sel.value);
+    wrap.appendChild(sel); td.appendChild(wrap); sel.focus();
+  } else if (field.type === "radio") {
+    const sel = document.createElement("select");
+    const blank = document.createElement("option"); blank.value=""; blank.textContent="— select —";
+    sel.appendChild(blank);
+    for (const o of field.options) {
+      const op = document.createElement("option"); op.value=o; op.textContent=o;
+      if (o === cur) op.selected = true;
+      sel.appendChild(op);
+    }
+    sel.onchange = () => commit(sel.value);
+    sel.onblur = () => commit(sel.value);
+    wrap.appendChild(sel); td.appendChild(wrap); sel.focus();
+  } else if (field.type === "checkbox") {
+    const cell = state[tab.id].tickets[ticketIndex][field.key];
+    commit(!cur);
+    return;
+  } else if (field.type === "multiselect") {
+    const inp = document.createElement("input");
+    inp.type = "text"; inp.placeholder = "Type to filter / add…";
+    wrap.appendChild(inp);
+    td.style.position = "relative";
+    const popup = document.createElement("div"); popup.className = "ms-popup";
+    const selected = new Set(Array.isArray(cur) ? cur : []);
+    function renderPopup(filter) {
+      popup.innerHTML = "";
+      const f = (filter || "").toLowerCase();
+      const optionList = field.options.length ? field.options : Array.from(selected);
+      const shown = optionList.filter(o => o.toLowerCase().includes(f));
+      // Free-text add
+      if (filter && !optionList.some(o => o.toLowerCase() === f)) {
+        const lab = document.createElement("label");
+        lab.innerHTML = '<input type="checkbox"> <em>+ add "' + escapeHtml(filter) + '"</em>';
+        lab.onclick = (e) => {
+          e.preventDefault();
+          selected.add(filter);
+          inp.value = "";
+          renderPopup("");
+        };
+        popup.appendChild(lab);
+      }
+      for (const o of shown) {
+        const lab = document.createElement("label");
+        const cb = document.createElement("input"); cb.type = "checkbox";
+        cb.checked = selected.has(o);
+        cb.onchange = () => { if (cb.checked) selected.add(o); else selected.delete(o); };
+        lab.appendChild(cb);
+        lab.appendChild(document.createTextNode(" " + o));
+        popup.appendChild(lab);
+      }
+      // Show currently-selected items not in shown list
+      for (const s of selected) {
+        if (!shown.includes(s) && !field.options.includes(s)) {
+          const lab = document.createElement("label");
+          const cb = document.createElement("input"); cb.type="checkbox"; cb.checked=true;
+          cb.onchange = () => { selected.delete(s); renderPopup(inp.value); };
+          lab.appendChild(cb);
+          lab.appendChild(document.createTextNode(" " + s + " (custom)"));
+          popup.appendChild(lab);
+        }
+      }
+    }
+    inp.oninput = () => renderPopup(inp.value);
+    renderPopup("");
+    td.appendChild(popup);
+    function close(e) {
+      if (td.contains(e.target)) return;
+      document.removeEventListener("mousedown", close);
+      commit(Array.from(selected));
+    }
+    setTimeout(() => document.addEventListener("mousedown", close), 0);
+    inp.focus();
+  } else if (field.type === "textarea") {
+    const ta = document.createElement("textarea");
+    ta.value = cur || "";
+    ta.onblur = () => commit(ta.value);
+    wrap.appendChild(ta); td.appendChild(wrap); ta.focus();
+  } else {
+    const inp = document.createElement("input");
+    inp.type = (field.type === "date" ? "date" :
+               field.type === "number" ? "number" :
+               field.type === "url" ? "url" : "text");
+    inp.value = cur || "";
+    if (field.max) inp.maxLength = field.max;
+    inp.onkeydown = (e) => {
+      if (e.key === "Enter") { e.preventDefault(); inp.blur(); }
+      if (e.key === "Escape") { renderPane(); }
+    };
+    inp.onblur = () => commit(inp.value);
+    wrap.appendChild(inp); td.appendChild(wrap); inp.focus(); inp.select();
+  }
+}
+
+function updateValidation(tab) {
+  const box = document.getElementById("validation-summary");
+  if (!box) return;
+  const tickets = state[tab.id].tickets;
+  let missingCount = 0; const ticketsWithMissing = new Set();
+  for (let c = 0; c < tickets.length; c++) {
+    for (const f of tab.fields) {
+      if (!f.required) continue;
+      const v = effectiveValue(tab, c, f.key);
+      if (isEmptyValue(v, f)) { missingCount++; ticketsWithMissing.add(c); }
+    }
+  }
+  if (missingCount === 0) {
+    box.innerHTML = '<div class="validation-msg ok">All required fields are populated across ' +
+      tickets.length + ' ticket' + (tickets.length===1?'':'s') + '.</div>';
+  } else {
+    box.innerHTML = '<div class="validation-msg">' + missingCount +
+      ' required field' + (missingCount===1?'':'s') + ' missing across ' +
+      ticketsWithMissing.size + ' ticket' + (ticketsWithMissing.size===1?'':'s') + '.</div>';
+  }
+}
+
+/* ---------- Bookmarklet generation ---------- */
+function buildPayload(tab, ticketIndex) {
+  // Compact payload: t=texts (input+textarea), s=selects, r=radios, c=checkbox names, m=multiselects
+  const p = { t:[], s:[], r:[], c:[], m:[] };
+  for (const f of tab.fields) {
+    const v = effectiveValue(tab, ticketIndex, f.key);
+    if (f.type === "select") { if (v) p.s.push([f.name, v]); }
+    else if (f.type === "radio") { if (v) p.r.push([f.name, v]); }
+    else if (f.type === "checkbox") { if (v) p.c.push(f.name); }
+    else if (f.type === "multiselect") { if (Array.isArray(v) && v.length) p.m.push([f.inputId, v]); }
+    else { if (v !== "" && v != null) p.t.push([f.name, String(v)]); }
+  }
+  return p;
+}
+
+/* Minified runtime. D = {t,s,r,c,m}. Single-line for compact javascript: URL. */
+function pegaFillerSource() {
+  return `(function(D){var d=document,F=d.getElementsByTagName('iframe'),i;for(i=0;i<F.length;i++){try{var x=F[i].contentDocument;if(x&&x.querySelector('[name*=pyWorkPage]')){d=x;break}}catch(e){}}if(!d.querySelector('[name*=pyWorkPage]')){alert('Pega form not found');return}function f(e,t){e.dispatchEvent(new Event(t,{bubbles:1}))}D.t.forEach(function(a){var e=d.querySelector('[name="'+a[0]+'"]');if(e){e.value=a[1];f(e,'input');f(e,'change');f(e,'blur')}});D.s.forEach(function(a){var e=d.querySelector('select[name="'+a[0]+'"]');if(!e)return;for(var i=0;i<e.options.length;i++)if(e.options[i].value==a[1]||e.options[i].text==a[1]){e.selectedIndex=i;break}f(e,'change')});D.r.forEach(function(a){var e=d.querySelector('input[type=radio][name="'+a[0]+'"][value="'+a[1]+'"]');if(e){e.checked=1;f(e,'click');f(e,'change')}});D.c.forEach(function(n){var e=d.querySelector('input[type=checkbox][name="'+n+'"]');if(e&&!e.checked){e.checked=1;f(e,'click');f(e,'change')}});function pk(I,v,cb){I.focus();I.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',keyCode:40,bubbles:1}));setTimeout(function(){var o=d.querySelectorAll('[role=option]'),m,i;for(i=0;i<o.length;i++)if(o[i].textContent.trim()===v){m=o[i];break}if(m)m.click();setTimeout(cb,200)},200)}var q=[];D.m.forEach(function(a){var I=d.getElementById(a[0]);if(!I)return;var c=I.closest('[class*=multiselect]')||I.parentElement.parentElement;c.querySelectorAll('[class*=capsule] button').forEach(function(b){try{b.click()}catch(e){}});a[1].forEach(function(v){q.push([I,v])})});(function r(i){if(i>=q.length)return;pk(q[i][0],q[i][1],function(){r(i+1)})})(0)})(__P__)`;
+}
+
+function buildBookmarkletUrl(payload) {
+  const src = pegaFillerSource().replace("__P__", JSON.stringify(payload));
+  // javascript: URLs only need % and # escaped (and " if used inside double-quoted href, but we set via .href).
+  return "javascript:" + src.replace(/%/g,"%25").replace(/#/g,"%23");
+}
+
+function renderBookmarklets(tab) {
+  const root = document.getElementById("bookmarklets-section");
+  root.innerHTML = "";
+  const tickets = state[tab.id].tickets;
+  const sec = document.createElement("div"); sec.className = "bookmarklet-section";
+  const h = document.createElement("h2"); h.textContent = "Your Bookmarklets";
+  sec.appendChild(h);
+  const instr = document.createElement("div"); instr.className = "instr";
+  instr.textContent = "Drag each bookmarklet to your bookmarks bar. In Pega, open a new \"" +
+    tab.title + "\" request form, then click the bookmarklet to auto-fill.";
+  sec.appendChild(instr);
+
+  // validation gate (warning only)
+  let missing = 0;
+  for (let c = 0; c < tickets.length; c++)
+    for (const f of tab.fields)
+      if (f.required && isEmptyValue(effectiveValue(tab, c, f.key), f)) missing++;
+  if (missing > 0) {
+    const w = document.createElement("div"); w.className = "validation-msg";
+    w.textContent = "Warning: " + missing + " required field(s) missing — bookmarklets generated anyway.";
+    sec.appendChild(w);
+  }
+
+  const ol = document.createElement("ol");
+  for (let c = 0; c < tickets.length; c++) {
+    const li = document.createElement("li");
+    const title = effectiveValue(tab, c, "titleOfRequest") || ("Ticket " + (c+1));
+    const payload = buildPayload(tab, c);
+    const url = buildBookmarkletUrl(payload);
+    const a = document.createElement("a");
+    a.className = "bookmarklet-link";
+    a.href = url;
+    a.textContent = "📌 " + title;
+    a.onclick = (e) => { e.preventDefault(); alert("Drag this link to your bookmarks bar — don't click it here."); };
+    li.appendChild(a);
+    const sz = document.createElement("span"); sz.className = "size-tag";
+    const sizeBytes = url.length;
+    sz.textContent = sizeBytes + " chars";
+    if (sizeBytes > 1800) { sz.classList.add("warn"); sz.textContent += " — large, consider shortening"; }
+    li.appendChild(sz);
+    ol.appendChild(li);
+  }
+  sec.appendChild(ol);
+  root.appendChild(sec);
+}
+
+/* ---------- Boot ---------- */
+loadState();
+renderTabs();
+renderPane();
+</script>
+</body>
+</html>
