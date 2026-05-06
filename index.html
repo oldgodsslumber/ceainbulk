@@ -157,9 +157,21 @@
     border:1px dashed #c8a849; color:#5a4200; border-radius:4px;
     text-decoration:none; cursor:grab; font-weight:500;
   }
-  .size-tag { color:var(--muted); font-size:11px; margin-left:8px; }
-  .size-tag.warn { color:var(--warn); font-weight:600; }
   .instr { color:var(--muted); font-size:12px; margin-bottom:6px; }
+  .drag-hint {
+    display:flex; align-items:center; gap:10px;
+    background:#fffbea; border:1px dashed #c8a849;
+    border-radius:5px; padding:10px 14px; margin-bottom:8px;
+    color:#5a4200; font-weight:500;
+  }
+  .drag-arrow {
+    font-size:24px; line-height:1; color:#b08000;
+    animation:bob 1.2s ease-in-out infinite;
+  }
+  @keyframes bob {
+    0%,100% { transform:translateY(0); }
+    50%     { transform:translateY(-4px); }
+  }
 </style>
 </head>
 <body>
@@ -426,6 +438,11 @@ function renderPane() {
   controls.append(addBtn, genBtn, dupBtn, count);
   pane.appendChild(controls);
 
+  // bookmarklets container — appears above the grid once generated
+  const bm = document.createElement("div");
+  bm.id = "bookmarklets-section";
+  pane.appendChild(bm);
+
   // grid
   const wrap = document.createElement("div"); wrap.className = "grid-wrap";
   const table = document.createElement("table"); table.className = "grid";
@@ -506,11 +523,6 @@ function renderPane() {
   const valBox = document.createElement("div");
   valBox.id = "validation-summary";
   pane.appendChild(valBox);
-
-  // bookmarklets container
-  const bm = document.createElement("div");
-  bm.id = "bookmarklets-section";
-  pane.appendChild(bm);
 
   root.appendChild(pane);
   updateValidation(tab);
@@ -750,9 +762,13 @@ function renderBookmarklets(tab) {
   const sec = document.createElement("div"); sec.className = "bookmarklet-section";
   const h = document.createElement("h2"); h.textContent = "Your Bookmarklets";
   sec.appendChild(h);
+  const dragHint = document.createElement("div");
+  dragHint.className = "drag-hint";
+  dragHint.innerHTML = '<span class="drag-arrow">⬆</span><span>Drag each link below up to your <b>bookmarks bar</b>.</span>';
+  sec.appendChild(dragHint);
   const instr = document.createElement("div"); instr.className = "instr";
-  instr.textContent = "Drag each bookmarklet to your bookmarks bar. In Pega, open a new \"" +
-    tab.title + "\" request form, then click the bookmarklet to auto-fill.";
+  instr.textContent = "Then in Pega, open a new \"" +
+    tab.title + "\" request form and click the bookmarklet to auto-fill.";
   sec.appendChild(instr);
 
   // validation gate (warning only)
@@ -778,11 +794,6 @@ function renderBookmarklets(tab) {
     a.textContent = "📌 " + title;
     a.onclick = (e) => { e.preventDefault(); alert("Drag this link to your bookmarks bar — don't click it here."); };
     li.appendChild(a);
-    const sz = document.createElement("span"); sz.className = "size-tag";
-    const sizeBytes = url.length;
-    sz.textContent = sizeBytes + " chars";
-    if (sizeBytes > 1800) { sz.classList.add("warn"); sz.textContent += " — large, consider shortening"; }
-    li.appendChild(sz);
     ol.appendChild(li);
   }
   sec.appendChild(ol);
