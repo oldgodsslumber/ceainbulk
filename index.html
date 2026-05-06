@@ -768,7 +768,8 @@ function renderBookmarklets(tab) {
   sec.appendChild(dragHint);
   const instr = document.createElement("div"); instr.className = "instr";
   instr.textContent = "Then in Pega, open a new \"" +
-    tab.title + "\" request form and click the bookmarklet to auto-fill.";
+    tab.title + "\" request form and click the bookmarklet to auto-fill. " +
+    "You will need to finish typing your Requester ID and select your user/email from the autocomplete dropdown.";
   sec.appendChild(instr);
 
   // validation gate (warning only)
